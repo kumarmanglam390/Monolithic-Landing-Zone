@@ -8,6 +8,11 @@ rgs = {
     location = "westus"
 
   }
+  rg3 = {
+    name     = "rg-github"
+    location = "westus"
+
+  }
 }
 
 storage_accounts = {
