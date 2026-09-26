@@ -6,12 +6,11 @@ on:
       - "feature/**"
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:
   terraform:
-    name: Terraform Init Fmt Validate Plan
+    name: Security Scan and Terraform Plan
     runs-on: ubuntu-latest
 
     defaults:
@@ -19,12 +18,23 @@ jobs:
         working-directory: environments/preprod
 
     steps:
+      # 1. Checkout repository
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      # 2. Gitleaks Secret Scan
+      - name: Gitleaks Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: environments/preprod/.gitleaks.toml
+
+      # 3. Install Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      # 4. Login to Azure
       - name: Azure Login
         run: |
           az login \
@@ -33,22 +43,24 @@ jobs:
             --password "${{ secrets.AZURE_CLIENT_SECRET }}" \
             --tenant "${{ secrets.AZURE_TENANT_ID }}"
 
+      # 5. Select Azure Subscription
       - name: Set Azure Subscription
         run: |
           az account set \
             --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
 
-      - name: Check Azure Login
-        run: az account show
-
+      # 6. Terraform Init
       - name: Terraform Init
         run: terraform init
 
+      # 7. Terraform Format Check
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
 
+      # 8. Terraform Validate
       - name: Terraform Validate
         run: terraform validate
 
+      # 9. Terraform Plan
       - name: Terraform Plan
         run: terraform plan -var-file="terraform.tfvars"
