@@ -9,9 +9,35 @@ permissions:
   contents: read
 
 jobs:
-  terraform:
-    name: Security Scan and Terraform Plan
+
+  # ==========================================
+  # JOB 1 - GITLEAKS
+  # ==========================================
+  gitleaks:
+    name: Gitleaks Secret Scan
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+  # ==========================================
+  # JOB 2 - TERRAFORM
+  # ==========================================
+  terraform:
+    name: Terraform Init Fmt Validate Plan
+    runs-on: ubuntu-latest
+
+    # Terraform will run only after Gitleaks succeeds
+    needs: gitleaks
 
     defaults:
       run:
@@ -19,23 +45,12 @@ jobs:
 
     steps:
 
-      # 1. Checkout repository
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      # 2. Gitleaks Secret Scan
-      - name: Gitleaks Secret Scan
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # 3. Install Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # 4. Azure Login
       - name: Azure Login
         run: |
           az login \
@@ -44,24 +59,19 @@ jobs:
             --password "${{ secrets.AZURE_CLIENT_SECRET }}" \
             --tenant "${{ secrets.AZURE_TENANT_ID }}"
 
-      # 5. Set Azure Subscription
       - name: Set Azure Subscription
         run: |
           az account set \
             --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
 
-      # 6. Terraform Init
       - name: Terraform Init
         run: terraform init
 
-      # 7. Terraform Format Check
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
 
-      # 8. Terraform Validate
       - name: Terraform Validate
         run: terraform validate
 
-      # 9. Terraform Plan
       - name: Terraform Plan
         run: terraform plan -var-file="terraform.tfvars"
