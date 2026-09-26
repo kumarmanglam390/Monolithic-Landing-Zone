@@ -18,17 +18,18 @@ jobs:
         working-directory: environments/preprod
 
     steps:
+
       # 1. Checkout repository
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 2. Scan repository for secrets
-      - name: Gitleaks Scan
+      # 2. Gitleaks Secret Scan
+      - name: Gitleaks Secret Scan
         uses: gitleaks/gitleaks-action@v2
         env:
-          GITLEAKS_CONFIG: environments/.gitleaks.toml
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # 3. Install Terraform
       - name: Setup Terraform
@@ -43,7 +44,7 @@ jobs:
             --password "${{ secrets.AZURE_CLIENT_SECRET }}" \
             --tenant "${{ secrets.AZURE_TENANT_ID }}"
 
-      # 5. Set subscription
+      # 5. Set Azure Subscription
       - name: Set Azure Subscription
         run: |
           az account set \
@@ -53,7 +54,7 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
-      # 7. Terraform Format
+      # 7. Terraform Format Check
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
 
