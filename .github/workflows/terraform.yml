@@ -5,6 +5,10 @@ on:
     branches:
       - "feature/**"
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   terraform:
     name: Terraform Init Fmt Validate Plan
@@ -20,6 +24,22 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+
+      - - name: Azure Login
+        run: |
+          az login \
+            --service-principal \
+            --username "${{ secrets.AZURE_CLIENT_ID }}" \
+            --password "${{ secrets.AZURE_CLIENT_SECRET }}" \
+            --tenant "${{ secrets.AZURE_TENANT_ID }}"
+
+      - name: Set Azure Subscription
+        run: |
+          az account set \
+            --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+
+      - name: Check Azure Login
+        run: az account show
 
       - name: Terraform Init
         run: terraform init
