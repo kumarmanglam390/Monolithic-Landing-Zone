@@ -1,411 +1,166 @@
-Monolithic-Landing-Zone
-Repo for Monolithic Landing ZOne
+Provision a secure, repeatable Azure infrastructure foundation with Terraform using a monolithic root-module approach. Built as a hands-on DevOps portfolio project demonstrating infrastructure as code, cloud networking, governance, and CI/CD practices.
 
-Enterprise Azure Landing Zone for Monolithic Workloads
-Azure Terraform IaC Architecture
+📌 Project Overview
+This project demonstrates how to provision an Azure Landing Zone using Terraform. It follows a monolithic architecture: related infrastructure resources are managed together from one Terraform root configuration and state, rather than separate independently deployed modules or stacks.
+Core goals
+- Provision infrastructure consistently through version-controlled Terraform.
+- Establish foundational networking and compute resources on Azure.
+- Use reusable input variables and environment-specific values.
+- Validate and review infrastructure changes before deployment.
+- Evolve toward security-first, automated delivery.
+Scope note: This is a landing-zone foundation / learning implementation, not a claim of full alignment with every Azure Landing Zone enterprise-scale design requirement. Validate the resource list below against the actual .tf files in this repository.
 
-Overview
-This repository implements a secure and scalable Azure Landing Zone for enterprise monolithic workloads using Terraform.
-
-The solution establishes a standardized Azure foundation covering networking, compute, security, identity, monitoring, governance, and infrastructure management.
-
-The architecture is designed to provide a controlled platform for hosting monolithic applications while following Infrastructure as Code principles and cloud security best practices.
-
-Objectives
-Establish a standardized Azure foundation for application workloads.
-Provision infrastructure using reusable Terraform modules.
-Implement network segmentation and controlled traffic flows.
-Minimize exposure of application resources to the public Internet.
-Centralize security, monitoring, and operational controls.
-Enable repeatable and consistent infrastructure provisioning.
-Provide a foundation for future CI/CD and DevSecOps integration.
-Architecture
-                           ┌──────────────────────┐
-                           │      End Users       │
-                           └──────────┬───────────┘
-                                      │
-                                      ▼
-                         ┌─────────────────────────┐
-                         │   Azure Application      │
-                         │      Gateway / WAF       │
-                         └────────────┬────────────┘
-                                      │
-                                      ▼
-                         ┌─────────────────────────┐
-                         │    Azure Load Balancer   │
-                         └────────────┬────────────┘
-                                      │
-                       ┌──────────────┴──────────────┐
-                       │                             │
-                       ▼                             ▼
-                ┌──────────────┐              ┌──────────────┐
-                │ Application  │              │ Application  │
-                │     VM 01    │              │     VM 02    │
-                └──────┬───────┘              └──────┬───────┘
-                       │                             │
-                       └──────────────┬──────────────┘
-                                      │
-                                      ▼
-                              ┌───────────────┐
-                              │ Data Layer    │
-                              │ / Database    │
-                              └───────────────┘
+🏗️ High-Level Architecture
+```mermaid
+flowchart TB
+    Dev[DevOps Engineer] --> Repo[GitHub Repository]
+    Repo --> CI[GitHub Actions - optional CI/CD]
+    CI --> TF[Terraform Root Configuration]
+    Dev --> TF
+    TF --> Azure[Microsoft Azure Subscription]
+    Azure --> RG[Resource Group]
+    RG --> VNet[Virtual Network]
+    VNet --> Front[Frontend Subnet]
+    VNet --> Back[Backend Subnet - optional]
+    Front --> NSG[Network Security Group]
+    Front --> NIC[Network Interface]
+    NIC --> VM[Azure Linux VM]
+    PIP[Public IP - optional] -.-> NIC
+    RG --> Storage[Remote State Storage - recommended]
+```
+Diagram is a reference architecture; optional components should be included only if present in your deployment.
+🧩 Infrastructure Components
+Component	Purpose	Typical Terraform resource
+Resource Group	Logical container for resources	azurerm_resource_group
+Virtual Network	Private network boundary	azurerm_virtual_network
+Subnet	Network segmentation	azurerm_subnet
+Network Security Group	Inbound/outbound traffic controls	azurerm_network_security_group
+Network Interface	Connects VM to subnet	azurerm_network_interface
+Public IP (optional)	Controlled external connectivity	azurerm_public_ip
+Linux VM	Compute workload	azurerm_linux_virtual_machine
+Storage Account (recommended)	Terraform remote state backend	azurerm_storage_account
 
 
- Management & Security
- ─────────────────────────────────────────────────────
+🧠 Why Monolithic Terraform?
+All resources are declared under a single root module and generally share one Terraform state and deployment lifecycle.
+Advantages: simple initial setup, clear dependency graph, centralized change review, and quick development for small environments.
+Trade-offs: larger state blast radius, slower plans as infrastructure grows, tighter coupling, and limited independent deployments. For multi-team or multi-environment enterprise use, split into separately managed stacks or modules when appropriate.
+📁 Suggested Repository Structure
+Adjust this tree to match your real repository before publishing.
 
-          ┌──────────────┐
-          │ Azure Bastion│
-          └──────┬───────┘
-                 │
-                 ▼
-        Private Application VMs
-
-          ┌──────────────┐
-          │ Azure Key    │
-          │    Vault     │
-          └──────────────┘
-
-          ┌──────────────┐
-          │ Azure Monitor│
-          │ + Log        │
-          │ Analytics    │
-          └──────────────┘
-Solution Architecture
-The Landing Zone separates application, management, and supporting services through dedicated network boundaries.
-
-Network
-The virtual network provides private connectivity between workload components.
-
-Example network design:
-
-VNet: 10.10.0.0/16
-
-├── Management Subnet
-│   └── Azure Bastion
-│
-├── Application Subnet
-│   ├── Application VM 01
-│   └── Application VM 02
-│
-└── Data Subnet
-    └── Database / Data Services
-Network traffic is controlled through Network Security Groups (NSGs) and application traffic is exposed through controlled entry points.
-
-Core Azure Services
-Area	Azure Service	Purpose
-Networking	Virtual Network	Private network foundation
-Networking	Subnets	Workload segmentation
-Security	NSG	Network traffic control
-Application Delivery	Application Gateway	Layer 7 routing and WAF
-Load Balancing	Azure Load Balancer	Backend traffic distribution
-Administration	Azure Bastion	Secure VM administration
-Compute	Azure Virtual Machines	Application hosting
-Security	Azure Key Vault	Secret and certificate management
-Monitoring	Azure Monitor	Infrastructure monitoring
-Logging	Log Analytics	Centralized log analysis
-Storage	Azure Storage	Platform and Terraform state storage
-Terraform Design
-The infrastructure is implemented using a modular Terraform architecture.
-
-Terraform Root Module
-        │
-        ├── Resource Groups
-        │
-        ├── Network Module
-        │      ├── VNet
-        │      ├── Subnets
-        │      └── NSGs
-        │
-        ├── Compute Module
-        │      └── Virtual Machines
-        │
-        ├── Application Gateway
-        │
-        ├── Load Balancer
-        │
-        ├── Bastion
-        │
-        ├── Key Vault
-        │
-        └── Monitoring
-The modular approach enables individual infrastructure components to be reused across environments while keeping the root configuration focused on workload composition.
-
-Repository Structure
-.
-├── modules/
-│   ├── resource-group/
-│   ├── network/
-│   ├── nsg/
-│   ├── compute/
-│   ├── load-balancer/
-│   ├── application-gateway/
-│   ├── bastion/
-│   ├── key-vault/
-│   └── monitoring/
-│
-├── environments/
-│   ├── dev/
-│   ├── test/
-│   └── prod/
-│
-├── main.tf
-├── variables.tf
-├── outputs.tf
-├── providers.tf
-├── versions.tf
-├── terraform.tfvars.example
+azure-monolithic-landing-zone/
+├── .github/
+│   └── workflows/
+│       └── terraform.yml          # Optional CI/CD pipeline
 ├── .gitignore
-└── README.md
-The repository structure should be adjusted to reflect the actual implementation.
-
-Terraform State Management
-Terraform state is maintained remotely using Azure Storage Blob Storage.
-
-Terraform
-    │
-    ▼
-Azure Storage Account
-    │
-    ▼
-Blob Container
-    │
-    ▼
-Terraform State
-Remote state provides centralized state management and prevents dependency on local state files when infrastructure is managed collaboratively.
-
-Sensitive state files are excluded from source control.
-
-Security Architecture
-Security is incorporated into the infrastructure design rather than being treated as a separate operational activity.
-
-Network Segmentation
-Application and management workloads are deployed into controlled subnets.
-
-Least-Privilege Access
-Network and identity permissions are restricted according to workload requirements.
-
-Private Workload Access
-Application VMs are designed to operate without unnecessary public exposure.
-
-Secure Administration
-Azure Bastion provides controlled administrative access to private virtual machines.
-
-Secret Management
-Credentials, certificates, and other sensitive values are intended to be managed through Azure Key Vault rather than stored directly in Terraform configuration or source control.
-
-Traffic Control
-NSGs restrict unauthorized inbound and outbound network communication.
-
-Monitoring & Observability
-Azure Monitor and Log Analytics provide centralized visibility into the deployed infrastructure.
-
-The monitoring layer can be used for:
-
-VM health
-CPU and memory utilization
-Network metrics
-Platform logs
-Application diagnostics
-Availability monitoring
-Alerting
-Azure Resources
-       │
-       ▼
- Azure Monitor
-       │
-       ▼
-Log Analytics
-       │
-       ├── Metrics
-       ├── Logs
-       └── Alerts
-Deployment Workflow
-The infrastructure follows a controlled Terraform workflow:
-
-Developer
-    │
-    ▼
-Git Repository
-    │
-    ▼
-Code Review
-    │
-    ▼
-terraform fmt
-    │
-    ▼
-terraform validate
-    │
-    ▼
-terraform plan
-    │
-    ▼
-Approval
-    │
-    ▼
-terraform apply
-    │
-    ▼
-Azure Infrastructure
-Deployment
-Prerequisites
-Azure Subscription
-Azure CLI
-Terraform
-Git
-Appropriate Azure RBAC permissions
-Authenticate with Azure:
-
+├── .gitleaks.toml                 # Optional custom secret-scan config
+├── README.md
+├── versions.tf                    # Terraform and provider requirements
+├── provider.tf                    # Azure provider configuration
+├── backend.tf                     # Remote state backend (if configured)
+├── main.tf                        # Main resource definitions
+├── variables.tf                   # Input variable declarations
+├── terraform.tfvars.example       # Safe example values
+└── outputs.tf                     # Useful deployment outputs
+Terraform files can be organized differently while remaining monolithic, as long as they belong to the same root module/state.
+🛠️ Prerequisites
+- An Azure subscription with permissions to provision the target resources.
+- Terraform installed.
+- Azure CLI installed.
+- Git and a GitHub account.
+- A configured remote backend, if your project uses one.
+🚀 Getting Started
+1. Clone the repository
+git clone https://github.com/<YOUR_USERNAME>/<YOUR_REPOSITORY>.git
+cd <YOUR_REPOSITORY>
+2. Authenticate to Azure
 az login
-Select the target subscription:
-
+az account list --output table
 az account set --subscription "<SUBSCRIPTION_ID>"
-Initialize Terraform:
+For local execution, use an identity with least-privilege access. In CI/CD, prefer OIDC workload identity federation over stored client secrets.
+3. Configure variables
+Create a local terraform.tfvars based on the variables actually declared in variables.tf. Example only:
+location            = "centralindia"
+resource_group_name = "rg-landingzone-dev"
+vnet_cidr           = "10.10.0.0/16"
+subnet_cidr         = "10.10.1.0/24"
+vm_size             = "Standard_B2s"
+Variable names above are illustrative. Replace them with your actual input names. Never commit passwords, access keys, tokens, or real .tfvars files containing secrets. Prefer SSH keys and secure secret stores over VM passwords.
 
+4. Initialize and validate
 terraform init
-Validate the configuration:
-
+terraform fmt -check -recursive
 terraform validate
-Format the Terraform configuration:
+5. Review and deploy
+terraform plan -out=tfplan
+terraform apply tfplan
+Always review the plan for unexpected resource replacement, exposed ports, and cost implications before applying.
+6. Inspect outputs
+terraform output
+7. Clean up lab resources
+terraform plan -destroy
+terraform destroy
+Destroy only resources you own and intend to remove. Check for dependencies and data-retention requirements first.
+🔄 CI/CD Workflow (Recommended)
+A production-minded GitHub Actions workflow should separate pull-request checks from approved deployment:
+```mermaid
+flowchart LR
+    A[Pull Request] --> B[Terraform fmt]
+    B --> C[Terraform validate]
+    C --> D[Secret / IaC scans]
+    D --> E[Terraform plan]
+    E --> F[Code review + approval]
+    F --> G[Apply to Azure]
+```
+Suggested quality gates
+1. terraform fmt -check -recursive
+2. terraform init -backend=false and terraform validate for static validation
+3. Gitleaks for secret detection
+4. Checkov or another IaC policy scanner
+5. Terraform plan for the target environment (with backend and Azure authentication configured)
+6. Manual approval / protected environment before apply
+CI/CD and scanning are recommended capabilities, not verified as implemented in this repository. Configure GitHub OIDC, scoped Azure RBAC, branch protection, and environment approvals before enabling automated apply.
 
-terraform fmt -recursive
-Review the proposed infrastructure changes:
+🔐 Security & Governance Considerations
+- Identity: least-privilege RBAC; avoid permanent service-principal secrets.
+- Network: deny-by-default NSGs; do not expose SSH/RDP to 0.0.0.0/0.
+- VM access: prefer Azure Bastion or private access and SSH-key authentication.
+- State: use an Azure Storage remote backend with restricted access and state locking; treat state as sensitive.
+- Secrets: use Key Vault or approved CI secrets management; never hardcode credentials.
+- Governance: apply consistent tags, naming conventions, policy controls, and cost budgets.
+- Observability: consider Azure Monitor, Log Analytics, diagnostic settings, and alerts.
+🧪 Validation Checklist
+- [ ] Terraform formatting passes.
+- [ ] Terraform validation passes.
+- [ ] Plan shows only intended changes.
+- [ ] VNet/subnet address ranges do not overlap.
+- [ ] NSG rules permit only necessary traffic.
+- [ ] No credentials or state files are committed.
+- [ ] Azure resource names and regions are correct.
+- [ ] VM SKU is available in the selected region.
+- [ ] Remote state and CI/CD identity are configured where applicable.
+- [ ] Outputs contain no unnecessary sensitive information.
+🩺 Troubleshooting
+Symptom	Likely cause	First check
+AuthorizationFailed	Insufficient Azure RBAC permissions	az account show and assigned roles
+ResourceNotFound	Incorrect name, resource group, or dependency	Terraform references and Azure resource IDs
+VM SKU unavailable	Region/SKU restrictions or quota	Available VM sizes and subscription quota
+Backend initialization fails	Storage permissions, network restrictions, or config	Backend settings and Azure identity
+Terraform reports drift	Manual changes made in Azure	terraform plan and change history
+Secret scan fails	Credential accidentally committed	Rotate/revoke secret and clean repository history
 
-terraform plan
-Deploy the infrastructure:
 
-terraform apply
-Infrastructure Lifecycle
-The infrastructure lifecycle follows a declarative model:
+📈 Future Enhancements
+- [ ] GitHub Actions pipeline with OIDC-based Azure authentication
+- [ ] Remote Terraform state with protected Azure Storage backend
+- [ ] Gitleaks + Checkov security gates
+- [ ] Azure Policy and management-group governance
+- [ ] Private networking, Azure Bastion, and Key Vault integration
 
-Terraform Configuration
-          │
-          ▼
-Desired State
-          │
-          ▼
-Terraform Plan
-          │
-          ▼
-Infrastructure Changes
-          │
-          ▼
-Azure Resources
-          │
-          ▼
-Terraform State
-Changes are reviewed through Terraform plans before being applied to the target environment.
+🎯 Talking Points
+“I built an Azure landing-zone foundation using Terraform in a monolithic architecture. I defined networking and compute infrastructure as code, used Terraform's plan-and-apply workflow for controlled provisioning, and focused on reproducibility and security. The monolithic design made the initial deployment straightforward, while also highlighting limitations around shared state, deployment coupling, and blast radius. My next step is to mature it with remote state, CI/CD security gates, and independently deployable Terraform modules.”
 
-Governance
-The Landing Zone can be extended with enterprise governance controls including:
 
-Azure Management Groups
-Azure Policy
-RBAC
-Resource tagging
-Naming standards
-Allowed Azure regions
-SKU restrictions
-Compliance policies
-Cost controls
-A standardized tagging model can be applied across resources:
-
-Environment = Production
-Application = MonolithicApp
-Owner       = PlatformTeam
-ManagedBy   = Terraform
-CostCenter  = Engineering
-High Availability
-For production workloads, application instances can be distributed across supported Azure availability constructs.
-
-Traffic is routed through the load-balancing layer and health probes are used to identify unavailable backend instances.
-
-                 Application Gateway
-                         │
-                         ▼
-                  Load Balancer
-                   /           \
-                  ▼             ▼
-             Application    Application
-                VM 01           VM 02
-                  │               │
-                  └───────┬───────┘
-                          ▼
-                       Data Tier
-The final availability architecture should be aligned with the application's business requirements and Azure service capabilities.
-
-DevSecOps Roadmap
-The current infrastructure can be integrated with a CI/CD and DevSecOps workflow.
-
-Planned validation stages include:
-
-Pull Request
-     │
-     ▼
-Terraform Formatting
-     │
-     ▼
-Terraform Validation
-     │
-     ▼
-TFLint
-     │
-     ▼
-Terraform Security Scan
-     │
-     ├── Checkov
-     ├── tfsec
-     └── Trivy
-     │
-     ▼
-Secret Scanning
-     │
-     └── Gitleaks
-     │
-     ▼
-Terraform Plan
-     │
-     ▼
-Approval
-     │
-     ▼
-Terraform Apply
-This provides a foundation for implementing Infrastructure as Code security and policy validation before infrastructure changes reach Azure.
-
-Future Enhancements
-The architecture can be extended with:
-
-Azure Management Groups
-Azure Policy as Code
-Azure Firewall
-Private Endpoints
-Private DNS Zones
-Microsoft Defender for Cloud
-DDoS Protection
-Azure Monitor Alerts
-Diagnostic Settings
-Azure Backup
-Disaster Recovery
-CI/CD automation
-Infrastructure security scanning
-Policy-as-Code
-Cost governance
-Multi-environment deployment
-Engineering Principles
-This project follows the following principles:
-
-Infrastructure as Code All infrastructure changes are represented as version-controlled Terraform configuration.
-
-Modularity Infrastructure components are organized into reusable Terraform modules.
-
-Security by Design Network isolation, controlled access, secret management, and monitoring are incorporated into the architecture.
-
-Least Privilege Access is restricted to the minimum permissions required.
-
-Repeatability The same Terraform configuration can be used to consistently provision environments.
-
-Observability Infrastructure health and operational data are centralized through Azure monitoring services.
-
-Governance Naming, tagging, access, and policy controls provide a foundation for enterprise cloud governance.
+- [ ] Centralized logging and monitoring
+- [ ] Modular Terraform architecture for independent deployments
+- [ ] Multi-environment deployment strategy (dev/test/prod)
